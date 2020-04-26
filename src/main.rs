@@ -88,10 +88,22 @@ impl Network {
         if input_data.len() != self.input_layer_size {
             return Err("Differeance in input size to the network///TODO LET THE LAYER HANDLE THIS")
         }
-        let pass_data = &input_data;
+
+        let mut pass_data = &input_data.clone();
+
         for l in &self.layers {
-            pass_data = l.fire(pass_data)
+            let result = l.fire(pass_data);
+            match result {
+                Err(e) => {
+                    return Err(e);
+                },
+                Ok(v) => {
+                    pass_data = &v;
+                }
+
+            }
         }
+
         return Ok(pass_data.to_vec());
     }
 }
