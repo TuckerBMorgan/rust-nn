@@ -88,27 +88,11 @@ impl Network {
         if input_data.len() != self.input_layer_size {
             return Err("Differeance in input size to the network///TODO LET THE LAYER HANDLE THIS")
         }
-
-
-        ///JUST NEED TO FUGURE OUT HOW TO SAVE THIS WITH NO PROBLEMS
-        let sum = self.layers.iter().try_fold(&input_data, |acc, x| {
-                let result = x.fire(acc);
-                match result { 
-                    Err(e) => {
-                        return Err(e);
-                    },
-                    Ok(v) => {
-                        //TODO: MAKE THIS BETTER
-                        let mut copy = vec![];
-                        for val in &v {
-                            copy.push(*val);
-                        }
-                        return Ok(copy);
-                    }
-                }
-            }
-        );
-        return Err("dasd");
+        let pass_data = &input_data;
+        for l in &self.layers {
+            pass_data = l.fire(pass_data)
+        }
+        return Ok(pass_data.to_vec());
     }
 }
 
