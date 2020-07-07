@@ -140,9 +140,9 @@ impl<'a> Network<'a> {
         let number_of_layers = self.layers.len();
         //scratch pad??????
         let mut errors = vec![];
-
+        let mut deltas = vec![];
         for (i, layer) in self.layers.iter_mut().rev().enumerate() {
-            if i == number_of_layers - 1 {
+            if i == 0 {
                 for j in 0..layer.logits.len() {
                     errors.push(expected[j] - layer.logits[i].last_output);
                 }
@@ -150,19 +150,27 @@ impl<'a> Network<'a> {
                 for e in &errors {
                     error_sum += e;
                 }
-               // println!("error {}", error_sum);
             }
+            else {
+                for j in 0..layer.logits.len() {
+                    error = 0.0f32;
+                    for d in deltas {
+                        error += 
+                    }
+                }
+            }
+            
+            println!("{}", i);
+            println!("layers {}", layer.logits.len());
+            println!("errors {}", errors.len());
+
             for (j, log) in layer.logits.iter_mut().enumerate() {
                 log.delta = errors[j] * (log.inverse_activation_function)(log.last_output);
             }
-            errors = vec![];
-            for j in 0..layer.logits.len() {
-                error = 0.0f32;
-                for n in 0..layer.logits.len() { 
-                    let logit = &layer.logits[n];
-                    error += logit.weights[j] * logit.delta;
-                }
-                errors.push(error);
+            deltas = vec![];
+
+            for l in layer.logits {
+                deltas.push(l.delta);
             }
         }
     }
@@ -229,6 +237,13 @@ fn main() {
 
     lc.push(LayerConfig {
         input_size: 1,
+        number_of_logits: 2,
+        activation_function: &relu,
+        inverse_activation_function: &relu_dx
+    });
+
+    lc.push(LayerConfig {
+        input_size: 2,
         number_of_logits: 1,
         activation_function: &relu,
         inverse_activation_function: &relu_dx
