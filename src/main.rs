@@ -1,287 +1,133 @@
-extern crate rand;
+use ndarray::prelude::*;
+use ndarray::Array;
 
-use rand::Rng;
+//電脳硬化症
+//https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 
-struct Logit<'a> {
-    weights: Vec<f32>,
-    last_output: f32,
-    delta: f32,
-    activation_function: &'a dyn Fn(f32) -> f32,
-    inverse_activation_function: &'a dyn Fn(f32) -> f32
+enum ActivationFunction {
+    relu,
+    linear,
+    sigmoid
 }
 
-impl<'a> Logit<'a> {
-    
-    pub fn new(input_size: usize,
-               activation_function: &'a dyn Fn(f32) -> f32,
-               inverse_activation_function: &'a dyn Fn(f32) -> f32) 
-                    -> Logit<'a> {
+struct DenseLayer {
+    pub weights: Array1::<f32>
+}
 
-        let mut weights = vec![];
-        let mut rng = rand::thread_rng();
-
-        for _ in 0..input_size {
-            weights.push(rng.gen::<f32>());
-        }
-
-        Logit {
-            weights,
-            last_output: 0.0,
-            delta: 0.0,
-            activation_function,
-            inverse_activation_function
+impl DenseLayer {
+    pub fn new(number_of_nerons: usize) -> DenseLayer {
+        DenseLayer {
+            weights: Array::<f32, _>::zeros((number_of_nerons).f())
         }
     }
-
-    pub fn fire(&mut self, inputs: &Vec<f32>) -> f32 {
-        let mut sum = 0.0;
-
-        for (i, v) in inputs.iter().enumerate() {
-            //println!("weight {}", self.weights[i]);
-            sum += v * self.weights[i];
-        }
-        self.last_output = (self.activation_function)(sum);
-        return self.last_output;
-    }
 }
 
-struct LayerConfig<'a> {
-    input_size: usize,
-    number_of_logits: usize,
-    activation_function:&'a dyn Fn(f32) -> f32,
-    inverse_activation_function: &'a dyn Fn(f32) -> f32
+struct InputLayer {
+    number_of_inputs: usize
 }
 
-struct Layer<'a> {
-    logits: Vec<Logit<'a>>,
-    input_size: usize,
-    activation_function: &'a dyn Fn(f32) -> f32,
-    inverse_activation_function: &'a dyn Fn(f32) -> f32
+struct DenseConfig {
+    number_of_nerons: usize
 }
 
-impl<'a> Layer<'a> {
-    pub fn new(layer_config: LayerConfig) -> Layer {
-        let mut logits = vec![];
+struct Layer {
+    weights: Array::<f32, Dim<[usize; 2]>>,
+    activation_function: ActivationFunction
+}
 
-        for i in 0..layer_config.number_of_logits {
-            let l = Logit::new(layer_config.input_size, layer_config.activation_function, layer_config.inverse_activation_function);
-            logits.push(l)
-        }
-
+impl Layer {
+    pub fn new(weights: Array::<f32, Dim<[usize; 2]>>, activation_function: ActivationFunction) -> Layer {
         Layer {
-            logits,
-            input_size: layer_config.input_size,
-            activation_function: layer_config.activation_function,
-            inverse_activation_function: layer_config.inverse_activation_function
-        }
-    }
-
-    pub fn fire(&mut self, input: &Vec<f32>) -> Result<Vec<f32>, &'static str> {
-        if input.len() != self.input_size {
-            return Err("Size of data input does not match size of input for layer");
-        }
-
-        let mut outputs : Vec<f32> = vec![];
-        for l in self.logits.iter_mut() {
-            let t = l.fire(&input);
-            outputs.push(t);
-        }
-
-        return Ok(outputs);
-    }
-
-}
-
-
-struct Network<'a> {
-    layers: Vec<Layer<'a>>,
-    input_layer_size: usize
-}
-
-impl<'a> Network<'a> {
-    pub fn new(layer_config: Vec<LayerConfig>) -> Network {
-        let mut layers = vec![];
-        let input_size = layer_config[0].input_size;
-        for lc in layer_config {
-            layers.push(Layer::new(lc));
-        }
-
-        Network {
-            layers,
-            input_layer_size: input_size
-        }
-    }
-
-    pub fn fire(&mut self, input_data: &Vec<f32>) -> Result<Vec<f32>, &'static str> {
-        if input_data.len() != self.input_layer_size {
-            return Err("Differeance in input size to the network///TODO LET THE LAYER HANDLE THIS")
-        }
-
-        let mut pass_data = Ok(input_data.clone());
-        for l in self.layers.iter_mut() {
-            let result = l.fire(&pass_data.unwrap());
-            match result {
-                Err(e) => {
-                    return Err(e);
-                },
-                Ok(_) => {
-                    pass_data = result;
-                }
-
-            }
-        }
-        return pass_data;
-    }
-
-    //https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
-    pub fn backprob(&mut self, output: &Vec<f32>, expected: &Vec<f32>)  {
-
-        let mut error = 0.0f32;
-        let number_of_layers = self.layers.len();
-        //scratch pad??????
-        let mut errors = vec![];
-        let mut deltas = vec![];
-        for (i, layer) in self.layers.iter_mut().rev().enumerate() {
-            if i == 0 {
-                for j in 0..layer.logits.len() {
-                    errors.push(expected[j] - layer.logits[i].last_output);
-                }
-                let mut error_sum = 0.0f32;
-                for e in &errors {
-                    error_sum += e;
-                }
-            }
-            else {
-                for j in 0..layer.logits.len() {
-                    error = 0.0f32;
-                    for d in deltas {
-                        error += 
-                    }
-                }
-            }
-            
-            println!("{}", i);
-            println!("layers {}", layer.logits.len());
-            println!("errors {}", errors.len());
-
-            for (j, log) in layer.logits.iter_mut().enumerate() {
-                log.delta = errors[j] * (log.inverse_activation_function)(log.last_output);
-            }
-            deltas = vec![];
-
-            for l in layer.logits {
-                deltas.push(l.delta);
-            }
-        }
-    }
-    pub fn update_weights(&mut self, pass_inputs : &Vec<f32>) {
-        let mut inputs = vec![];
-        for i in 0..self.layers.len() {
-
-            if i == 0 {
-                inputs = pass_inputs.to_vec();
-            }
-
-            for logit in self.layers[i].logits.iter_mut() {
-                for j in 0..logit.weights.len() {
-                    logit.weights[j] += 0.00001 * logit.delta * inputs[j];
-                }
-            }
-
-            inputs = vec![];
-            for logit in self.layers[i].logits.iter_mut() {
-                inputs.push(logit.last_output);
-            }
+            weights,
+            activation_function
         }
     }
 }
 
-fn sigmoid(v: f32) -> f32 {
-    let e_to_neg_x = (-v).exp();
-    return 1.0 / ( 1.0 + e_to_neg_x);
-}
 
-fn sigmoid_dx(v: f32) -> f32 {
-    return v * (1.0 - v);
-}
+fn compile_network(input_layer: InputLayer, layers_config: Vec<DenseConfig>) -> Vec<Layer> {
 
-fn linear(v: f32) -> f32 {
-    return v;
-}
+    let input_array = Array::<f32, _>::zeros((1, input_layer.number_of_inputs).f());
+    let mut previous_array_ouput = input_array.shape()[1];
+    println!("{:?}", previous_array_ouput);
+    let input_layer = Layer::new(input_array, ActivationFunction::linear);
 
-fn linear_dx(v: f32) -> f32 {
-    return -v;
-}
+    let mut layers = vec![];
 
-fn relu(v: f32) -> f32 {
-    if v > 0.0f32 {
-        return v;
+    for layer_config in layers_config {
+        let next_array = Array::<f32, _>::zeros((previous_array_ouput, layer_config.number_of_nerons).f());
+        previous_array_ouput = next_array.shape()[1];
+        let layer = Layer::new(next_array, ActivationFunction::relu);
+        layers.push(layer);
     }
-    return 0f32;
+
+    return layers;
 }
 
-fn relu_dx(v: f32) -> f32 {
-    if v > 0.0f32 {
-        return 1.0f32;
+fn forward_pass(input_data: Array::<f32, Dim<[usize; 2]>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
+    let mut layer_input = Array::<f32, _>::zeros((1, input_data.shape()[1]).f());
+    layer_input.assign(&input_data);
+    let mut outputs = vec![];
+
+    for layer in network.iter_mut() {
+        let pre_output = layer_input.dot(&layer.weights);
+        let final_ouput = pre_output.map(|x| {if *x < 0.0f32 {return 0.0f32;} return *x});
+        //TODO: This is really expensive, would prefer to find a way to not double the work here
+        let mut array_copy = Array::<f32, _>::zeros((1, final_ouput.shape()[1]).f());
+        array_copy.assign(&final_ouput);
+        outputs.push(array_copy);
+        let mut foo = Array::<f32, _>::zeros((1, final_ouput.shape()[1]).f());
+        foo.assign(&final_ouput);
+        layer_input = foo;
     }
-    else if v == 0.0f32 {
-        return 0.5f32;
+
+    return outputs;
+}
+
+fn backprop(expected_outputs:Array::<f32, Dim<[usize; 2]>>, outputs: Vec<Array::<f32, Dim<[usize; 2]>>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
+    let index = &outputs.len() - 1;
+    let mut error = &expected_outputs - &outputs[index];
+    let mut all_deltas = vec![];
+
+    for (i, layer) in network.iter().skip(1).rev().enumerate() {
+        let deltas = &error * &outputs[i].map(|x|{
+                //derivative of the relu function
+                if *x > 0.0f32 {
+                    return 1.0f32;
+                } 
+                else if  *x == 0.0f32 { 
+                    return 0.5f32;
+                } 
+                return 0.0f32;
+            }
+        );
+        error = deltas.dot(&layer.weights);
+        all_deltas.push(deltas);
     }
-    return 0.0f32;
+    return all_deltas;
 }
 
 fn main() {
+    let input_layer = InputLayer {
+        number_of_inputs: 3
+    };
 
+    let dense_config = DenseConfig {
+        number_of_nerons: 2
+    };
 
-    let mut lc = vec![];
+    let dense_config1 = DenseConfig {
+        number_of_nerons: 2
+    };
 
-    lc.push(LayerConfig {
-        input_size: 1,
-        number_of_logits: 2,
-        activation_function: &relu,
-        inverse_activation_function: &relu_dx
-    });
+    let dense_config2 = DenseConfig {
+        number_of_nerons: 2
+    };
 
-    lc.push(LayerConfig {
-        input_size: 2,
-        number_of_logits: 1,
-        activation_function: &relu,
-        inverse_activation_function: &relu_dx
-    });
-
-
-    let mut n  = Network::new(lc);
-    let data_length = 25;
-    let mut fake_input = vec![];
-    for i in 0..data_length  {
-        fake_input.push(i as f32);
-    }
-
-    let mut foo = vec![];
-    for i in 0..data_length {
-        foo.push((i * 2)as f32 );
-    }
-    
-    let mut rng = rand::thread_rng();
-
-    let mut i = 0;
-    loop {
-        let mut index = rng.gen_range(0, data_length);
-        let fake_fake_input = vec![fake_input[index]];
-        let fake_fake_output = vec![foo[index]];
-        let result = n.fire(&fake_fake_input).unwrap();
-        let mut mean_sqaure_error = 0.0f32;
-        if i % 100 == 0 {
-            let mut mean_sqaure_error = 0.0f32;
-            for i in 0..data_length {
-                let result = n.fire(&vec![i as f32]).unwrap();
-                mean_sqaure_error += ((i * 2) as f32 - result[0]).powf(2.0);
-            }
-            println!("mse {}", mean_sqaure_error / data_length as f32);
-        }
-
-        n.backprob(&result, &fake_fake_output);
-        n.update_weights(&fake_fake_input);
-        i += 1;
-    }
+    let number_of_inputs = input_layer.number_of_inputs;
+    let mut network = compile_network(input_layer, vec![dense_config, dense_config1, dense_config2]);
+    let fake_input = Array::<f32, _>::zeros((1, number_of_inputs).f());
+    let outputs = forward_pass(fake_input, &mut network);
+    let mut fake_output = Array::<f32, _>::zeros((1, 2).f());
+    let deltas = backprop(fake_output, outputs, &mut network);
 }
