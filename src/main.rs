@@ -48,9 +48,8 @@ impl Layer {
 fn compile_network(input_layer: InputLayer, layers_config: Vec<DenseConfig>) -> Vec<Layer> {
 
     let input_array = Array::<f32, _>::zeros((1, input_layer.number_of_inputs).f());
+
     let mut previous_array_ouput = input_array.shape()[1];
-    println!("{:?}", previous_array_ouput);
-    let input_layer = Layer::new(input_array, ActivationFunction::linear);
 
     let mut layers = vec![];
 
@@ -64,7 +63,7 @@ fn compile_network(input_layer: InputLayer, layers_config: Vec<DenseConfig>) -> 
     return layers;
 }
 
-fn forward_pass(input_data: Array::<f32, Dim<[usize; 2]>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
+fn forward_pass(input_data: &Array::<f32, Dim<[usize; 2]>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
     let mut layer_input = Array::<f32, _>::zeros((1, input_data.shape()[1]).f());
     layer_input.assign(&input_data);
     let mut outputs = vec![];
@@ -84,13 +83,13 @@ fn forward_pass(input_data: Array::<f32, Dim<[usize; 2]>>, network: &mut Vec<Lay
     return outputs;
 }
 
-fn backprop(expected_outputs:Array::<f32, Dim<[usize; 2]>>, outputs: Vec<Array::<f32, Dim<[usize; 2]>>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
+fn backprop(expected_outputs:Array::<f32, Dim<[usize; 2]>>, outputs: &Vec<Array::<f32, Dim<[usize; 2]>>>, network: &mut Vec<Layer>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
     let index = &outputs.len() - 1;
     let mut error = &expected_outputs - &outputs[index];
     let mut all_deltas = vec![];
 
-    for (i, layer) in network.iter().skip(1).rev().enumerate() {
-        let deltas = &error * &outputs[i].map(|x|{
+    for (i, layer) in network.iter().rev().enumerate() {
+        let output_derivative = outputs[(outputs.len() - 1) - i].map(|x|{
                 //derivative of the relu function
                 if *x > 0.0f32 {
                     return 1.0f32;
@@ -101,10 +100,27 @@ fn backprop(expected_outputs:Array::<f32, Dim<[usize; 2]>>, outputs: Vec<Array::
                 return 0.0f32;
             }
         );
-        error = deltas.dot(&layer.weights);
+
+
+        let deltas = &error * &output_derivative;
+
+        error = layer.weights.dot(&deltas.t()).reversed_axes();
         all_deltas.push(deltas);
     }
+    all_deltas.reverse();
     return all_deltas;
+}
+
+
+fn update_weights(network: &mut Vec<Layer>, deltas : Vec<Array::<f32, Dim<[usize; 2]>>>, inputs : &Array::<f32, Dim<[usize; 2]>>, learning_rate: f32, outputs: &Vec<Array::<f32, Dim<[usize; 2]>>>) {
+    let mut use_input = inputs;
+    for i in 0..network.len() {
+        println!("{:?}", use_input.shape());
+        println!("{:?}", deltas[i].shape());
+        println!("{:?}", network[i].weights.shape());
+        network[i].weights = &network[i].weights + &deltas[i].map(|x|x * learning_rate).reversed_axes().dot(use_input).reversed_axes();
+        use_input = &outputs[i];
+    }
 }
 
 fn main() {
@@ -117,17 +133,28 @@ fn main() {
     };
 
     let dense_config1 = DenseConfig {
-        number_of_nerons: 2
+        number_of_nerons: 4
     };
 
     let dense_config2 = DenseConfig {
         number_of_nerons: 2
     };
 
+    let dense_config3 = DenseConfig {
+        number_of_nerons: 5
+    };
+
+
     let number_of_inputs = input_layer.number_of_inputs;
-    let mut network = compile_network(input_layer, vec![dense_config, dense_config1, dense_config2]);
+    let mut network = compile_network(input_layer, vec![dense_config, dense_config1, dense_config2, dense_config3]);
     let fake_input = Array::<f32, _>::zeros((1, number_of_inputs).f());
-    let outputs = forward_pass(fake_input, &mut network);
-    let mut fake_output = Array::<f32, _>::zeros((1, 2).f());
-    let deltas = backprop(fake_output, outputs, &mut network);
+    let outputs = forward_pass(&fake_input, &mut network);
+
+    let mut fake_output = Array::<f32, _>::zeros((1, 5).f());
+    let deltas = backprop(fake_output, &outputs, &mut network);
+   // for d in deltas {
+        //println!("{:?}", d.shape());
+  //  }
+    //return;
+    update_weights(&mut network, deltas, &fake_input, 0.001f32, &outputs);
 }
