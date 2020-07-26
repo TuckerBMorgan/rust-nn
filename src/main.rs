@@ -13,7 +13,7 @@ use ndarray::Array;
 fn main() {
     let network = Network::new();
     let input_layer_condig = InputLayerConfig::new(2);
-    let dense_layer_1 = DenseLayerConfig::new(2,  ActivationFunction::relu);
+    let dense_layer_1 = DenseLayerConfig::new(2,  ActivationFunction::sigmoid);
     let dense_layer_2 = DenseLayerConfig::new(1,  ActivationFunction::sigmoid);
 
     let mut compiled_network = network
@@ -47,5 +47,5 @@ fn main() {
                             [1.0]
                             ];
     let outputs : Vec<Array::<f32, Dim<[usize; 2]>>> = pre_output.iter().map(|x| return Array::<f32, Dim<[usize; 2]>>::from_shape_vec((1, 1), x.to_vec()).unwrap()).collect();
-    compiled_network.train(inputs, outputs, 100);
+    compiled_network.train(inputs, outputs, 20000);
 }

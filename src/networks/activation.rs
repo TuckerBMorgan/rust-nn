@@ -22,9 +22,11 @@ pub fn sigmoid_dx(x: &f32) -> f32 {
 }
 
 
-//relu for the spicy
-pub fn relu(x: &f32) -> f32 {
-    return (*x).max(0.0f32);
+fn relu(x: &f32) -> f32 {
+    if *x > 0.0f32 {
+        return *x;
+    }
+    return 0f32;
 }
 
 fn relu_dx(x: &f32) -> f32 {

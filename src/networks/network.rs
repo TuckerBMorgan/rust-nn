@@ -85,18 +85,31 @@ impl CompiledNetwork {
     
     pub fn train(&mut self, inputs: Vec<Array::<f32, Dim<[usize; 2]>>>, outputs: Vec<Array::<f32, Dim<[usize; 2]>>>, epochs: usize) {
         let mut rng = rand::thread_rng();
-        for i in 0..epochs {
-            println!("Epoch {}", i);
-            let index = rng.gen_range(0, inputs.len());
-            let run_input = &inputs[index];
-            let run_output = &outputs[index];
-            let forward_output = self.forward_pass(run_input);
-            let deltas = self.backprop(run_output, &forward_output);
-            self.update_weights(deltas, run_input, 0.001f32, &forward_output);            
-        }
+        for e in 0..epochs {
+           // println!("Epoch {}", e);
 
+            //Run a batch of training
+            for i in 0..inputs.len() {                
+                let index = rng.gen_range(0, inputs.len());
+                let run_input = &inputs[index];
+                let run_output = &outputs[index];
+                let forward_output = self.forward_pass(run_input);
+                let deltas = self.backprop(run_output, &forward_output);
+                self.update_weights(deltas, run_input, 0.001f32, &forward_output);
+            }
+
+            //Calculate error
+            if e % 100 == 0 {
+                let mut error = 0.0f32;
+                for n in 0..inputs.len() {
+                    let test_output = self.forward_pass(&inputs[n]);
+                    let final_ouput = &test_output[test_output.len() - 1];
+                    error += (&outputs[n] - final_ouput).mean().unwrap();
+                }
+                println!("Error for Epoch {} is {}", e, error);
+            }            
+        }
     }
-    
 }
 
 pub struct Network {
