@@ -1,5 +1,5 @@
-1. Varaible functions
-2. Mutlithread/SIMD 
+0.1.0 release
 
-Goal # 1
-Have  NN that solves the Frozen lake RL problem
+Dense, Conv2D, pooling, flatten layers
+GUI for creating them
+toy text examples RL gym

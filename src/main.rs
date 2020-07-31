@@ -11,7 +11,7 @@ use ndarray::Array;
 
 
 fn main() {
-    let network = Network::new();
+    let network = NetworkConfig::new();
     let input_layer_condig = InputLayerConfig::new(2);
     let dense_layer_1 = DenseLayerConfig::new(2,  ActivationFunction::sigmoid);
     let dense_layer_2 = DenseLayerConfig::new(1,  ActivationFunction::sigmoid);

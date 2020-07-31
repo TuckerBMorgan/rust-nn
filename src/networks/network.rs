@@ -6,33 +6,15 @@ use rand::Rng;
 use ndarray_rand::RandomExt;
 use ndarray_rand::rand_distr::Uniform;
 
-use super::{
-    DenseLayerConfig, InputLayerConfig,
-    ActivationFunction,
-    LINEAR_FUNCTION, RELU_FUNCTION, SIGMOID_FUNCTION, 
-    ActivationPair
-};
+use super::*;
 
-pub struct LayerLayout {
-    weights: Array::<f32, Dim<[usize; 2]>>,
-    activation_function: ActivationPair
-}
-
-impl LayerLayout {
-    pub fn new(weights: Array::<f32, Dim<[usize; 2]>>, activation_function: ActivationPair) -> LayerLayout {
-        LayerLayout {
-            weights,
-            activation_function
-        }
-    }
-}
 
 pub struct CompiledNetwork {
-    layers_layout: Vec<LayerLayout>
+    layers_layout: Vec<Box<LayerV2>>
 }
 
 impl CompiledNetwork {
-    pub fn new (layers_layout: Vec<LayerLayout>) -> CompiledNetwork {
+    pub fn new (layers_layout: Vec<Box<LayerV2>>) -> CompiledNetwork {
         CompiledNetwork {
             layers_layout
         }
@@ -45,9 +27,7 @@ impl CompiledNetwork {
         
         //The first layer is an input layer, it is an artifact of the way I create the matrixs, need to think about how to remove it
         for layer in self.layers_layout.iter_mut() {
-            let pre_output = layer_input.dot(&layer.weights);
-            let final_ouput = pre_output.map(layer.activation_function.0);
-            //TODO: This is really expensive, would prefer to find a way to not double the work here
+            let final_ouput = layer.forward(layer_input);
             let mut array_copy = Array::<f32, _>::zeros((1, final_ouput.shape()[1]).f());
             array_copy.assign(&final_ouput);
             outputs.push(array_copy);
@@ -58,27 +38,25 @@ impl CompiledNetwork {
     
         return outputs;
     }
-
+    
     pub fn backprop(&mut self, expected_outputs : &Array::<f32, Dim<[usize; 2]>>, actual_outputs: &Vec<Array::<f32, Dim<[usize; 2]>>>) -> Vec<Array::<f32, Dim<[usize; 2]>>> {
         let index = &actual_outputs.len() - 1;
         let mut error = expected_outputs - &actual_outputs[index];
         let mut all_deltas = vec![];
     
-        for (i, layer) in self.layers_layout.iter().rev().enumerate() {
-            let output_derivative = actual_outputs[(actual_outputs.len() - 1) - i].map(layer.activation_function.1);
-
-            let deltas = &error * &output_derivative;
-            error = layer.weights.dot(&deltas.t()).reversed_axes();
-            all_deltas.push(deltas);
+        for (i, layer) in self.layers_layout.iter_mut().rev().enumerate() {
+            let (a, b) = layer.backprop(&error, &actual_outputs[(actual_outputs.len() - 1) - i]);
+            error = b;
+            all_deltas.push(a);
         }
         all_deltas.reverse();
         return all_deltas;
     }
-
+    
     pub fn update_weights(&mut self, deltas : Vec<Array::<f32, Dim<[usize; 2]>>>, inputs : &Array::<f32, Dim<[usize; 2]>>, learning_rate: f32, outputs: &Vec<Array::<f32, Dim<[usize; 2]>>>) {
         let mut use_input = inputs;
-        for i in 0..self.layers_layout.len() {
-            self.layers_layout[i].weights = &self.layers_layout[i].weights + &deltas[i].map(|x|x * learning_rate).reversed_axes().dot(use_input).reversed_axes();
+        for (i, layer) in self.layers_layout.iter_mut().enumerate() {
+            layer.update_weights(use_input, &deltas[i], 0.001f32);
             use_input = &outputs[i];
         }
     }
@@ -110,36 +88,37 @@ impl CompiledNetwork {
             }            
         }
     }
+    
 }
 
-pub struct Network {
-    layers_layout: Vec<LayerLayout>
+pub struct NetworkConfig {
+    layers: Vec<Box<LayerV2>>
 }
 
-impl Network {
-    pub fn new() -> Network {
-        Network {
-            layers_layout: vec![],
+impl NetworkConfig {
+    pub fn new() -> NetworkConfig {
+        NetworkConfig {
+            layers: vec![]
         }
     }
 
-    pub fn add_input_layer(mut self, input_layer_config: InputLayerConfig) -> Network {
-        if self.layers_layout.len() != 0 {
+    pub fn add_input_layer(mut self, input_layer_config: InputLayerConfig) -> NetworkConfig {
+        if self.layers.len() != 0 {
             panic!("This network already has a input layer");
         }
         let input_array = Array::<f32, _>::from_elem((1, input_layer_config.number_of_inputs), 1.);
         
-        let layer = LayerLayout::new(input_array, LINEAR_FUNCTION);
-        self.layers_layout.push(layer);
+        let layer = InputLayer::new(input_array);
+        self.layers.push(Box::new(layer));
         self
     }
 
-    pub fn add_dense_layer(mut self, dense_layer_config: DenseLayerConfig) -> Network {
+    pub fn add_dense_layer(mut self, dense_layer_config: DenseLayerConfig) -> NetworkConfig {
         
         //https://www.tensorflow.org/api_docs/python/tf/keras/initializers/lecun_uniform
         let le_cun_random_limit = (3.0f32 / dense_layer_config.number_of_nerons as f32).sqrt();
         
-        let previous_array_ouput = self.layers_layout[self.layers_layout.len() - 1].weights.shape()[1];
+        let previous_array_ouput = self.layers[self.layers.len() - 1].shape()[1];
         let next_array = Array::<f32, _>::random((previous_array_ouput, dense_layer_config.number_of_nerons), Uniform::new(-le_cun_random_limit, le_cun_random_limit));
         
         let activation_function;
@@ -155,15 +134,16 @@ impl Network {
                 activation_function = RELU_FUNCTION;
             }
         }
-        let layer = LayerLayout::new(next_array, activation_function);
+        let layer = DenseLayer::new(next_array, activation_function);
 
-        self.layers_layout.push(layer);
+        self.layers.push(Box::new(layer));
         self
     }
 
     pub fn compile(mut self) -> CompiledNetwork {
-        let _ = self.layers_layout.remove(0);//Remove the dummy input layer
-        let mut complied_network = CompiledNetwork::new(self.layers_layout);
-        return complied_network;
-    }    
+        //removing the input layer which is just there to give a shape for the first layer
+        self.layers.remove(0);
+        let mut compiled_network = CompiledNetwork::new(self.layers);
+        return compiled_network;
+    }
 }

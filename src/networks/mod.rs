@@ -1,12 +1,11 @@
 mod layer_configs;
-pub use layer_configs::{
-    InputLayerConfig,
-    DenseLayerConfig,
-    ActivationFunction
-};
+pub use layer_configs::*;
+
+mod layer_definitions;
+pub use layer_definitions::*;
 
 mod network;
-pub use network::Network;
+pub use network::*;
 
 mod activation;
 pub use activation::*;
