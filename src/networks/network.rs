@@ -140,6 +140,10 @@ impl NetworkConfig {
         self
     }
 
+    pub fn add_conv2d_layer(mut self, conv2d_layer: Conv2dLayerConfig) -> NetworkConfig {
+        
+    }
+
     pub fn compile(mut self) -> CompiledNetwork {
         //removing the input layer which is just there to give a shape for the first layer
         self.layers.remove(0);

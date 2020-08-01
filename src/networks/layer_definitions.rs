@@ -85,16 +85,48 @@ impl LayerV2 for DenseLayer {
     }
 }
 
-pub struct LayerLayout {
+pub struct Conv2dLayer {
+    stride: usize,
+    filter_size: (usize, usize),
+    number_of_filters: usize,
     weights: Array::<f32, Dim<[usize; 2]>>,
     activation_function: ActivationPair
 }
 
-impl LayerLayout {
-    pub fn new(weights: Array::<f32, Dim<[usize; 2]>>, activation_function: ActivationPair) -> LayerLayout {
-        LayerLayout {
-            weights,
-            activation_function
-        }
+impl Conv2dLayer {
+    pub fn new(stride: usize, filter_size: (usize, usize), number_of_filters: usize, 
+               weights: Array::<f32, Dim<[usize; 2]>>, activation_function: ActivationPair) -> Conv2dLayer {
+            Conv2dLayer {
+                stride,
+                filter_size,
+                number_of_filters,
+                weights,
+                activation_function
+            }
+    }
+}
+
+impl LayerV2 for Conv2dLayer {
+    fn forward(&mut self, input: Array::<f32, Dim<[usize; 2]>>) -> Array::<f32, Dim<[usize; 2]>> {
+
+        
+        let pre_output = input.dot(&self.weights);
+        let final_ouput = pre_output.map(self.activation_function.0);
+        return final_ouput;
+    }
+
+    fn shape(&self) -> &[usize] {
+        return self.weights.shape();
+    }
+    
+    fn backprop(&mut self, error: &Array::<f32, Dim<[usize; 2]>>, output: &Array::<f32, Dim<[usize; 2]>>) -> (Array::<f32, Dim<[usize; 2]>>, Array::<f32, Dim<[usize; 2]>>) {
+        let output_derivative = output.map(self.activation_function.1);
+        let deltas = error * &output_derivative;
+        let new_error = self.weights.dot(&deltas.t()).reversed_axes();
+        return (deltas, new_error);
+    }
+
+    fn update_weights(&mut self, input: &Array::<f32, Dim<[usize; 2]>>, deltas: &Array::<f32, Dim<[usize; 2]>>, learning_rate: f32) {
+        self.weights = &self.weights + &deltas.map(|x|x * learning_rate).reversed_axes().dot(input).reversed_axes();
     }
 }
