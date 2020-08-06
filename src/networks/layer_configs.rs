@@ -30,7 +30,7 @@ impl DenseLayerConfig {
         }
     }
 }
-
+/*
 pub struct Conv2dLayerConfig {
     pub stride: usize,
     pub kernal_size: (usize, usize),
@@ -48,7 +48,7 @@ impl Conv2dLayerConfig {
         }
     }
 }
-
+*/
 /*
     Why we should look towards Magic the Gathering for how to build AI
     I think some AI is really fucking boring

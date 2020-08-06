@@ -3,15 +3,35 @@ pub mod networks;
 use networks::*;
 
 use ndarray::prelude::*;
-use ndarray::Array;
+use ndarray::{Array, IxDyn, Ix2};
 //Denkata 
 //電硬
 //電脳硬化症
 //https://machinelearningmastery.com/implement-backpropagation-algorithm-scratch-python/
 
+pub struct Test {
+    test: Vec<Array::<f32, IxDyn>>
+}
+
+impl Test {
+    pub fn new() -> Test {
+        Test {
+            test: vec![]
+        }
+    }
+}
 
 fn main() {
+
+    let mut k = Array::zeros((2, 3));
+    k[[0, 0]] = 1.;
+    let mut j = Array::zeros((2, 3, 4));
+    j[[0, 0, 0]] = 1.;
+    let mut test = Test::new();
+    test.test.push(k.into_dyn());
+
     let network = NetworkConfig::new();
+
     let input_layer_condig = InputLayerConfig::new(2);
     let dense_layer_1 = DenseLayerConfig::new(2,  ActivationFunction::sigmoid);
     let dense_layer_2 = DenseLayerConfig::new(1,  ActivationFunction::sigmoid);
@@ -34,7 +54,8 @@ fn main() {
                             [8.675418651,-0.242068655],
                             [7.673756466,3.508563011]
                            ];
-    let inputs : Vec<Array::<f32, Dim<[usize; 2]>>> = pre_input.iter().map(|x| return Array::<f32, Dim<[usize; 2]>>::from_shape_vec((1, 2), x.to_vec()).unwrap()).collect();
+    let inputs : Vec<Array::<f32, IxDyn>> = pre_input.iter().map(|x| return Array::<f32, Dim<[usize; 2]>>::from_shape_vec((1, 2), x.to_vec()).unwrap().into_dyn()).collect();
+
     let pre_output = vec![[0.0],
                             [0.0],
                             [0.0],
@@ -46,6 +67,6 @@ fn main() {
                             [1.0],
                             [1.0]
                             ];
-    let outputs : Vec<Array::<f32, Dim<[usize; 2]>>> = pre_output.iter().map(|x| return Array::<f32, Dim<[usize; 2]>>::from_shape_vec((1, 1), x.to_vec()).unwrap()).collect();
+    let outputs : Vec<Array::<f32, IxDyn>> = pre_output.iter().map(|x| return Array::<f32, Dim<[usize; 2]>>::from_shape_vec((1, 1), x.to_vec()).unwrap().into_dyn()).collect();
     compiled_network.train(inputs, outputs, 20000);
 }
